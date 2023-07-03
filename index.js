@@ -5,8 +5,9 @@ const run = async () => {
   await kp.init();
 
   const categories = await kp.getCategories();
-  const alati = await categories.getCategory("Alati i oruđa");
-  console.log(alati.subCategories);
+  const tools = await categories.getCategory("Alati i oruđa");
+  const listings = await tools.getListings();
+  console.log(listings.getAllListings())
 
   await kp.close();
 }

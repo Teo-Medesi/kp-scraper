@@ -1,5 +1,6 @@
 import puppeteer from "puppeteer";
 import dotenv from "dotenv"
+import { transformString } from "./utils/utils.js";
 
 class BaseScraper {
   browser;
@@ -111,41 +112,69 @@ class Category {
   }
 
   async getListings() {
+    const transformedName = transformString(this.name);
+    await this.page.goto(`https://kupujemprodajem.com/${this.name}/pretraga`);
+    const data = await this.page.$$(".AdItem_adHolder__NoNLJ");
+    const listings = [];
 
+    for (const listing in data) {
+      const titleElement = await listing.$(".AdItem_name__RhGAZ");
+      const title = await titleElement.evaluate(element => element.textContent);
+      const url = await titleElement.evaluate(element => element.href);
+
+      const imageElement = await listing.$("img");
+      const coverImage = await imageElement.evaluate(element => element.src);
+
+      const descriptionElement = await listing.$(".AdItem_name__RhGAZ p");
+      const description = await descriptionElement.evaluate(element => element.textContent);
+
+      const priceElement = await listing.$(".AdItem_price__jUgxi");
+      const price = await priceElement.evaluate(element => element.textContent);
+
+      const locationElement = await listing.$(".AdItem_originAndPromoLocation__HgtYj");
+      const location = await locationElement.evaluate(element => element.textContent);
+
+      listings.push({ title, description, price, location, coverImage, url });
+    }
+
+    return new Listings(listings, this.browser, this.page)
   }
 }
 
 class Listings {
   #listings;
+  browser;
+  page;
 
-  constructor(listings) {
+  constructor(listings, browser, page) {
     this.#listings = listings;
+    this.browser = browser;
+    this.page = page;
   }
 
   getAllListings() {
     return this.#listings;
   }
 
-  getListing() {
-
+  async getListing(url) {
+    await this.page.goto(url);
   }
 }
 
 class Listing {
   title;
+  description;
   price;
   location;
   url;
-  description;
-  author;
+  coverImage;
 
-  constructor(title, price, location, url, description, author) {
+  constructor(title, price, location, url, description) {
     this.title = title;
     this.price = price;
     this.location = location;
     this.url = url;
     this.description = description;
-    this.author = author;
   }
 
   async getImages() {

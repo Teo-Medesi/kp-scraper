@@ -1,0 +1,23 @@
+{
+  "name": "njuskalo-scraper",
+  "version": "1.0.0",
+  "description": "A web scraper designed for scraping kupujemprodajem.com",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "scrape": "node index.js"
+  },
+  "keywords": [
+    "scraper",
+    "crawler",
+    "kupujemprodajem"
+  ],
+  "author": "Teo Medesi",
+  "license": "ISC",
+  "dependencies": {
+    "puppeteer": "^20.7.4"
+  },
+  "devDependencies": {
+    "dotenv": "^16.3.1"
+  }
+}

@@ -1,6 +1,6 @@
 import puppeteer from "puppeteer";
 import dotenv from "dotenv"
-import { getCategoryId, transformString } from "./utils/utils.js";
+import { getCategoryId, transformString, extractPrice } from "./utils/utils.js";
 
 class BaseScraper {
   browser;
@@ -32,6 +32,25 @@ class KupujemProdajem extends BaseScraper {
     dotenv.config();
   }
 
+  async getListing(url) {
+    try {
+      await this.page.goto(url);
+      await this.page.waitForSelector(".Box_box__03Q3_.AdPage_adInfoBox__65MTf")
+
+      const title = await this.page.$eval('h1.AdViewInfo_name__ShcRk', (element) => element.innerText.trim());
+      const description = await this.page.$eval('.AdViewDescription_descriptionHolder__9hET7 div', (element) => element.innerText.trim());
+      const price = await this.page.$eval('h2.AdViewInfo_price__RLvIy', (element) => element.innerText.trim());
+      const location = await this.page.$eval('.UserSummary_userDetails__tNXN7 div div + div', (element) => element.innerText.trim());
+
+      return new Listing({ title, description, price: extractPrice(price), location }, this.browser, this.page);
+
+    }
+    catch (error) {
+      console.error(`Error while getting listing, error: ${error}`);
+      await this.browser?.close();
+    }
+  }
+
   async getCategories() {
     try {
       await this.page.waitForSelector(".CategoryList_list__a7SOH")
@@ -51,8 +70,8 @@ class KupujemProdajem extends BaseScraper {
       return new Categories(categories, this.browser, this.page);
     }
     catch (error) {
-      console.error(error);
       await this.browser?.close();
+      console.error(`Error while getting categories, error: ${error}`);
     }
   }
 
@@ -121,24 +140,12 @@ class Category {
     const listings = [];
 
     for (const listing of data) {
-
-      const titleElement = await listing?.$(".AdItem_name__RhGAZ");
-      const title = await titleElement?.evaluate(element => element.textContent);
-
-      const urlElemement = await listing?.$(".AdItem_adTextHolder__Fmra9 a");
-      const url = await urlElemement?.evaluate(element => element.href);
-
-      const imageElement = await listing?.$("img");
-      const coverImage = await imageElement?.evaluate(element => element.src);
-
-      const descriptionElement = await listing?.$(".AdItem_adTextHolder__Fmra9 p");
-      const description = await descriptionElement?.evaluate(element => element.textContent);
-
-      const priceElement = await listing?.$(".AdItem_price__jUgxi");
-      const price = await priceElement?.evaluate(element => element.textContent);
-
-      const locationElement = await listing?.$(".AdItem_originAndPromoLocation__HgtYj");
-      const location = await locationElement?.evaluate(element => element.textContent);
+      const title = await listing?.$eval('.AdItem_name__RhGAZ', element => element.textContent);
+      const url = await listing?.$eval('.AdItem_adTextHolder__Fmra9 a', element => element.href);
+      const coverImage = await listing?.$eval('img', element => element.src);
+      const description = await listing?.$eval('.AdItem_adTextHolder__Fmra9 p', element => element.textContent);
+      const price = await listing?.$eval('.AdItem_price__jUgxi', element => element.textContent);
+      const location = await listing?.$eval('.AdItem_originAndPromoLocation__HgtYj', element => element.textContent);
 
       listings.push({ title, description, price, location, coverImage, url });
     }

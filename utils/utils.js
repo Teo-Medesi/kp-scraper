@@ -103,8 +103,22 @@ function saveToFolder(data, filePath) {
   }
 }
 
+function extractPrice(price) {
+  const regex = /(\d+(?:\.\d+)?)\s*(\D+)/;
+  const match = price.match(regex);
+
+  if (match && match.length === 3) {
+    const extractedPrice = match[1];
+    const currency = match[2];
+    return `${extractedPrice} ${currency}`;
+  }
+
+  return null;
+}
+
 export {
   transformString,
   getCategoryId,
-  saveToFolder
+  saveToFolder,
+  extractPrice
 }

@@ -1,4 +1,5 @@
 import KupujemProdajem from "./kp-scraper.js";
+import { saveToFolder } from "./utils/utils.js";
 
 const run = async () => {
   const kp = new KupujemProdajem();
@@ -6,8 +7,12 @@ const run = async () => {
 
   const categories = await kp.getCategories();
   const tools = await categories.getCategory("Alati i oruđa");
-  const listings = await tools.getListings();
-  console.log(listings.getAllListings())
+
+  let listings = await tools.getListings();
+  listings = await listings.getAllListings();
+
+  saveToFolder(listings, "json/listings.json");
+
 
   await kp.close();
 }

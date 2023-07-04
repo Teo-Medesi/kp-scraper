@@ -69,7 +69,7 @@ class Categories {
     this.page = page;
   }
 
-  getList() {
+  getAllCategories() {
     return this.#categories;
   }
 
@@ -115,19 +115,12 @@ class Category {
     const transformedName = transformString(this.name);
     const categoryId = getCategoryId(transformedName);
 
-    console.log("🚀 ~ file: kp-scraper.js:116 ~ Category ~ getListings ~ transformedName:", transformedName);
-
     await this.page.goto(`https://novi.kupujemprodajem.com/${transformedName}/pretraga?categoryId=${categoryId}`);
     const data = await this.page.$$(".AdItem_adHolder__NoNLJ");
-
-    console.log("🚀 ~ file: kp-scraper.js:119 ~ Category ~ getListings ~ `https://novi.kupujemprodajem.com/${transformedName}/pretraga`:", `https://novi.kupujemprodajem.com/${transformedName}/pretraga`);
-    console.log("🚀 ~ file: kp-scraper.js:118 ~ Category ~ getListings ~ data:", data);
 
     const listings = [];
 
     for (const listing of data) {
-
-      console.log("🚀 ~ file: kp-scraper.js:123 ~ Category ~ getListings ~ listing:", listing);
 
       const titleElement = await listing?.$(".AdItem_name__RhGAZ");
       const title = await titleElement?.evaluate(element => element.textContent);
@@ -170,7 +163,16 @@ class Listings {
   }
 
   async getListing(url) {
-    await this.page.goto(url);
+    try {
+      await this.page.goto(url);
+
+      const listing = this.#listings.find(listing => listing.url === url);
+      return new Listing(listing, this.browser, this.page);
+    }
+    catch (error) {
+      await this.browser?.close();
+      throw new Error(`Error while getting listing, error: ${error}`);
+    }
   }
 }
 
@@ -181,55 +183,38 @@ class Listing {
   location;
   url;
   coverImage;
+  browser;
+  page;
 
-  constructor(title, price, location, url, description) {
-    this.title = title;
-    this.price = price;
-    this.location = location;
-    this.url = url;
-    this.description = description;
+  constructor(listing, browser, page) {
+    this.title = listing?.title;
+    this.price = listing?.price;
+    this.location = listing?.location;
+    this.url = listing?.url;
+    this.description = listing?.description;
+    this.coverImage = listing?.coverImage;
+    this.page = page;
+    this.browser = browser;
   }
 
   async getImages() {
+    try {
+      await this.page.waitForSelector(".GallerySlideItem_imageGalleryImage__2eGga");
 
-  }
-}
+      const data = await this.page.$$(".GallerySlideItem_imageGalleryImage__2eGga");
+      const images = [];
 
-const getListings = async (category) => {
-  let browser;
-  try {
-    browser = await puppeteer.launch({ headless: true });
+      for (const image of data) {
+        const url = await image.evaluate(image => image.src);
+        images.push(url);
+      }
 
-    const page = await browser.newPage();
-    page.setDefaultNavigationTimeout(2 * 60 * 1000);
-
-    await page.goto(`https://novi.kupujemprodajem.com/${category}/pretraga`);
-
-    await page.waitForSelector('.AdItem_adHolder__NoNLJ', { timeout: 0 });
-
-    // Extract the listings
-    const listings = await page.$$('.AdItem_adHolder__NoNLJ');
-
-    const data = [];
-
-    // Iterate over the listings and extract the desired information
-    for (const listing of listings) {
-      const title = await listing.$eval('.AdItem_name__RhGAZ', (element) => element.textContent);
-      const description = await listing.$eval('.AdItem_descriptionHolder__kffJU p', (element) => element.textContent);
-      const image = await listing.$eval('.AdItem_imageHolder__LZaKa img', (element) => element.src);
-      const price = await listing.$eval('.AdItem_price__jUgxi', (element) => element.textContent);
-      const url = await listing.$eval('.AdItem_adTextHolder__Fmra9 a', (element) => element.href);
-
-      data.push({ title, description, image, price, url });
+      return images;
     }
-
-    console.log(data)
-
-    await browser.close();
-  }
-  catch (error) {
-    console.error(error)
-    await browser?.close();
+    catch (error) {
+      await this.browser?.close();
+      throw new Error(`Error while getting images, error: ${error}`);
+    }
   }
 }
 

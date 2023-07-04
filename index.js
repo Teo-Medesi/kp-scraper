@@ -8,11 +8,13 @@ const run = async () => {
   const categories = await kp.getCategories();
   const tools = await categories.getCategory("Alati i oruđa");
 
-  let listings = await tools.getListings();
-  listings = await listings.getAllListings();
+  const listings = await tools.getListings();
 
-  saveToFolder(listings, "json/listings.json");
+  const url = "https://novi.kupujemprodajem.com/alati-i-orudja/elektricni/masina-za-sisanje-ovaca-ruska-800w-nova/oglas/150762602?filterId=2139960553"
+  const listing = await listings.getListing(url);
 
+  const images = await listing.getImages();
+  saveToFolder(images, "json/images.json");
 
   await kp.close();
 }

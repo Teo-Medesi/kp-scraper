@@ -1,6 +1,6 @@
 import KupujemProdajem from "./kp-scraper.js";
 
-const run = async () => {
+const example = async () => {
   const kp = new KupujemProdajem();
   await kp.init();
 
@@ -9,4 +9,4 @@ const run = async () => {
   await kp.close();
 }
 
-run();
+example();

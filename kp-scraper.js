@@ -3,14 +3,18 @@ import { getCategoryId, transformString, extractPrice } from "./utils/utils.js";
 
 class BaseScraper {
   browser;
-  #page;
+  page;
 
+  /**
+   * initialize the scraper, must be called before using any of the KupujemProdajem methods
+   * @async
+   */
   async init() {
     try {
       this.browser = await puppeteer.launch();
-      this.#page = await this.browser.newPage();
-      this.#page.setDefaultNavigationTimeout(2 * 60 * 1000);
-      await this.#page.goto("https://novi.kupujemprodajem.com")
+      this.page = await this.browser.newPage();
+      this.page.setDefaultNavigationTimeout(2 * 60 * 1000);
+      await this.page.goto("https://novi.kupujemprodajem.com")
     }
     catch (error) {
       console.error(`Error while during initilization, error: ${error}`);
@@ -38,8 +42,9 @@ class KupujemProdajem extends BaseScraper {
    * Retrieves a listing by url
    * @param {String} url the url of the listing you want to get
    * @returns instance of the Listing class
+   * @async
    */
-  async getListing(url) {
+  async getListingByUrl(url) {
     try {
       await this.page.goto(url);
       await this.page.waitForSelector(".Box_box__03Q3_.AdPage_adInfoBox__65MTf")
@@ -58,9 +63,45 @@ class KupujemProdajem extends BaseScraper {
     }
   }
 
+
+  /**
+   * Retrieves listings from the first page that matches the keywords query
+   * @param {String} keywords keywords to find listing in search 
+   * @returns instance of Listings class
+   * @async
+   */
+  async getListingsBySearch(keywords) {
+    try {
+      await this.page.goto(`https://novi.kupujemprodajem.com/pretraga?keywords=${encodeURIComponent(keywords)}`);
+
+      const data = await this.page.$$(".AdItem_adHolder__NoNLJ");
+
+      const listings = [];
+
+      for (const listing of data) {
+        const title = await listing?.$eval('.AdItem_name__RhGAZ', element => element.textContent).catch(() => { });
+        const url = await listing?.$eval('.AdItem_adTextHolder__Fmra9 a', element => element.href).catch(() => { });
+        const coverImage = await listing?.$eval('img', element => element.src).catch(() => { });
+        const description = await listing?.$eval('.AdItem_adTextHolder__Fmra9 p', element => element.textContent).catch(() => { });
+        const price = await listing?.$eval('.AdItem_price__jUgxi', element => element.textContent).catch(() => { });
+        const location = await listing?.$eval('.AdItem_originAndPromoLocation__HgtYj', element => element.textContent).catch(() => { });
+
+        listings.push({ title, description, price, location, coverImage, url });
+      }
+
+      return new Listings(listings, this.browser, this.page)
+
+    }
+    catch (error) {
+      console.error(`Error while searching for listings, error: ${error}`);
+      await this.browser?.close();
+    }
+  }
+
   /**
    * Retrieves all categories of website
    * @returns instance of Categories class
+   * @async
    */
   async getCategories() {
     try {
@@ -165,6 +206,7 @@ class Category {
    * Retrieves all listings from the first page of a category
    * @returns instance of Listings class
    * @todo add pagination functionality (scrape page 2 and beyond)
+   * @async
    */
   async getListings() {
     try {
@@ -221,6 +263,7 @@ class Listings {
    * Retrieves a listing by url
    * @param {String} url url of listing
    * @returns instance of Listing class
+   * @async
    */
   async getListing(url) {
     try {
@@ -263,6 +306,7 @@ class Listing {
   /**
    * Retrieve all images related to listing
    * @returns array of image urls
+   * @async
    */
   async getImages() {
     try {

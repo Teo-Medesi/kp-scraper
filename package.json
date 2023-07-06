@@ -1,5 +1,5 @@
 {
-  "name": "njuskalo-scraper",
+  "name": "kp-scraper",
   "version": "1.0.0",
   "description": "A web scraper designed for scraping kupujemprodajem.com",
   "type": "module",
@@ -13,11 +13,8 @@
     "kupujemprodajem"
   ],
   "author": "Teo Medesi",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "puppeteer": "^20.7.4"
-  },
-  "devDependencies": {
-    "dotenv": "^16.3.1"
   }
 }

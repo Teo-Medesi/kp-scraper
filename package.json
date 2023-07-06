@@ -1,12 +1,8 @@
 {
   "name": "kp-scraper",
   "version": "1.0.0",
-  "description": "A web scraper designed for scraping kupujemprodajem.com",
+  "description": "A web scraper for the Serbian listings site KupujemProdajem",
   "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "scrape": "node index.js"
-  },
   "keywords": [
     "scraper",
     "crawler",

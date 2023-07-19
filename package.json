@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "A web scraper for the Serbian listings site KupujemProdajem",
   "type": "module",
+  "scripts": {
+    "example": "node example.js"
+  },
   "keywords": [
     "scraper",
     "crawler",
@@ -11,6 +14,6 @@
   "author": "Teo Medesi",
   "license": "MIT",
   "dependencies": {
-    "puppeteer": "^20.7.4"
+    "puppeteer": "^20.8.3"
   }
 }

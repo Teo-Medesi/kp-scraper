@@ -1,12 +1,20 @@
 import fs from "fs"
 
+function getSubcategoryFromURL(url) {
+  // Split the URL by slashes to get the individual segments
+  const segments = url.split('/');
+
+  const subcategoryName = segments[4];
+
+  return subcategoryName;
+}
+
 function transformString(input) {
   let transformed = input.toLowerCase();
 
   // Replace whitespace with hyphens
   transformed = transformed.replace(/\s+/g, '-');
 
-  // Replace special characters
   const replacements = {
     'đ': 'dj',
     'š': 's',
@@ -120,5 +128,6 @@ export {
   transformString,
   getCategoryId,
   saveToFolder,
-  extractPrice
+  extractPrice,
+  getSubcategoryFromURL
 }

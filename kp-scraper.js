@@ -1,5 +1,5 @@
 import puppeteer from "puppeteer";
-import { getCategoryId, transformString, extractPrice } from "./utils/utils.js";
+import { getCategoryId, transformString, extractPrice, getSubcategoryFromURL } from "./utils/utils.js";
 
 class BaseScraper {
   browser;
@@ -203,28 +203,29 @@ class Category {
   }
 
   /**
-   * Retrieves all listings from the first page of a category
+   * Retrieves all listings from the specified page of a category (by default page 1)
+   * @param {Object} [options] 
+   * @param {Number} [options.page] the page to scrape
    * @returns instance of Listings class
-   * @todo add pagination functionality (scrape page 2 and beyond)
    * @async
    */
-  async getListings() {
+  async getListings(options = {page: 1}) {
     try {
       const transformedName = transformString(this.name);
       const categoryId = getCategoryId(transformedName);
 
-      await this.#page.goto(`https://novi.kupujemprodajem.com/${transformedName}/pretraga?categoryId=${categoryId}`);
+      await this.#page.goto(`https://novi.kupujemprodajem.com/${transformedName}/pretraga?categoryId=${categoryId}&page=${options.page}`);
       const data = await this.#page.$$(".AdItem_adHolder__NoNLJ");
 
       const listings = [];
 
       for (const listing of data) {
-        const title = await listing?.$eval('.AdItem_name__RhGAZ', element => element.textContent);
-        const url = await listing?.$eval('.AdItem_adTextHolder__Fmra9 a', element => element.href);
-        const coverImage = await listing?.$eval('img', element => element.src);
-        const description = await listing?.$eval('.AdItem_adTextHolder__Fmra9 p', element => element.textContent);
-        const price = await listing?.$eval('.AdItem_price__jUgxi', element => element.textContent);
-        const location = await listing?.$eval('.AdItem_originAndPromoLocation__HgtYj', element => element.textContent);
+        const title = await listing?.$eval('.AdItem_name__RhGAZ', element => element.textContent).catch(() => { });
+        const url = await listing?.$eval('.AdItem_adTextHolder__Fmra9 a', element => element.href).catch(( ) => { });
+        const coverImage = await listing?.$eval('img', element => element.src).catch(( ) => { });
+        const description = await listing?.$eval('.AdItem_adTextHolder__Fmra9 p', element => element.textContent).catch(() => { });
+        const price = await listing?.$eval('.AdItem_price__jUgxi', element => element.textContent).catch(( ) => { });
+        const location = await listing?.$eval('.AdItem_originAndPromoLocation__HgtYj', element => element.textContent).catch(( ) => { });
 
         listings.push({ title, description, price, location, coverImage, url });
       }
@@ -267,8 +268,6 @@ class Listings {
    */
   async getListing(url) {
     try {
-      await this.#page.goto(url);
-
       const listing = this.#listings.find(listing => listing.url === url);
       return new Listing(listing, this.browser, this.#page);
     }
@@ -304,12 +303,21 @@ class Listing {
   }
 
   /**
+  * retrieves which subcategory or category the listing belongs to
+  * @returns string
+  */
+  getSubCategory() {
+    return getSubcategoryFromURL(this.url);
+  }
+
+  /**
    * Retrieve all images related to listing
    * @returns array of image urls
    * @async
    */
   async getImages() {
     try {
+      await this.#page.goto(this.url);
       await this.#page.waitForSelector(".GallerySlideItem_imageGalleryImage__2eGga");
 
       const data = await this.#page.$$(".GallerySlideItem_imageGalleryImage__2eGga");

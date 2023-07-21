@@ -1,6 +1,8 @@
 import fs from "fs"
 
 function getSubcategoryFromURL(url) {
+  if (!url) return null;
+  
   // Split the URL by slashes to get the individual segments
   const segments = url.split('/');
 
@@ -13,7 +15,7 @@ function transformString(input) {
   let transformed = input.toLowerCase();
 
   // Replace whitespace with hyphens
-  transformed = transformed.replace(/\s+/g, '-');
+  transformed = transformed.replace(/[\s,|.]+/g, '-');
 
   const replacements = {
     'đ': 'dj',

@@ -1,2 +1,4 @@
 .env
 diagnostics.js
+
+node_modules

@@ -1,4 +1,5 @@
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth"
 import { getCategoryId, transformString, extractPrice, getSubcategoryFromURL } from "./utils/utils.js";
 
 class BaseScraper {
@@ -15,9 +16,11 @@ class BaseScraper {
       this.page = await this.browser.newPage();
       this.page.setDefaultNavigationTimeout(2 * 60 * 1000);
       await this.page.goto("https://novi.kupujemprodajem.com")
+
+      puppeteer.use(StealthPlugin())
     }
     catch (error) {
-      console.error(`Error while during initilization, error: ${error}`);
+      console.error(`Error during initilization, error: ${error}`);
       await this.browser?.close();
     }
   }
@@ -39,6 +42,31 @@ class KupujemProdajem extends BaseScraper {
   }
 
   /**
+   * Retrieves latest listings
+   * @returns instance of the Listing class
+   * @async
+   */
+  async getLatestListings() {
+    try {
+      await this.page.goto("https://novi.kupujemprodajem.com/najnoviji/1")
+      await this.page.waitForSelector(".Box_box__03Q3_.AdPage_adInfoBox__65MTf")
+
+      const title = await this.page.$eval('h1.AdViewInfo_name__ShcRk', (element) => element.innerText.trim());
+      const description = await this.page.$eval('.AdViewDescription_descriptionHolder__9hET7 div', (element) => element.innerText.trim());
+      const price = await this.page.$eval('h2.AdViewInfo_price__RLvIy', (element) => element.innerText.trim());
+      const location = await this.page.$eval('.UserSummary_userDetails__tNXN7 div div + div', (element) => element.innerText.trim());
+
+      return new Listing({ title, description, price: extractPrice(price), location }, this.browser, this.page);
+
+    }
+    catch (error) {
+      console.error(`Error while getting listing, error: ${error}`);
+      return null
+    }
+  }
+
+
+  /**
    * Retrieves a listing by url
    * @param {String} url the url of the listing you want to get
    * @returns instance of the Listing class
@@ -54,12 +82,12 @@ class KupujemProdajem extends BaseScraper {
       const price = await this.page.$eval('h2.AdViewInfo_price__RLvIy', (element) => element.innerText.trim());
       const location = await this.page.$eval('.UserSummary_userDetails__tNXN7 div div + div', (element) => element.innerText.trim());
 
-      return new Listing({ title, description, price: extractPrice(price), location }, this.browser, this.page);
+      return new Listing({ title, description, price: extractPrice(price), location, url }, this.browser, this.page);
 
     }
     catch (error) {
       console.error(`Error while getting listing, error: ${error}`);
-      await this.browser?.close();
+      return null
     }
   }
 
@@ -94,7 +122,7 @@ class KupujemProdajem extends BaseScraper {
     }
     catch (error) {
       console.error(`Error while searching for listings, error: ${error}`);
-      await this.browser?.close();
+      return null
     }
   }
 
@@ -116,14 +144,14 @@ class KupujemProdajem extends BaseScraper {
       for (const category of data) {
         const name = await category.evaluate(element => element.textContent);
         const url = await category.evaluate(element => element.href)
-        categories.push({ name, url });
+        categories.push({ name: transformString(name), url });
       }
 
       return new Categories(categories, this.browser, this.page);
     }
     catch (error) {
       console.error(`Error while getting categories, error: ${error}`);
-      await this.browser?.close();
+      return null
     }
   }
 
@@ -152,7 +180,7 @@ class Categories {
 
   /**
    * Retrieves category by name
-   * @param {String} name exact name of category such as "Alati i Oruđa" 
+   * @param {String} name wrriten in lowercase with no white space and no special characters, e.g "alati-i-orudja" 
    * @returns instance of Category class
    */
   async getCategory(name) {
@@ -179,7 +207,7 @@ class Categories {
     }
     catch (error) {
       console.error(`Error while getting categories, error: ${error}`);
-      await this.browser?.close();
+      return null
     }
   }
 }
@@ -211,6 +239,8 @@ class Category {
    */
   async getListings(options = {page: 1}) {
     try {
+      await this.#page.screenshot({path: "screenshot.png"})
+
       const transformedName = transformString(this.name);
       const categoryId = getCategoryId(transformedName);
 
@@ -234,7 +264,7 @@ class Category {
     }
     catch (error) {
       console.error(`Error while getting listings, error: ${error}`);
-      await this.browser?.close();
+      return null
     }
   }
 }
@@ -272,8 +302,8 @@ class Listings {
       return new Listing(listing, this.browser, this.#page);
     }
     catch (error) {
-      await this.browser?.close();
-      throw new Error(`Error while getting listing, error: ${error}`);
+      console.error(`Error while getting listing, error: ${error}`);
+      return null
     }
   }
 }
@@ -310,6 +340,23 @@ class Listing {
     return getSubcategoryFromURL(this.url);
   }
 
+  async getFullDescription() {
+    try {
+      if (!this.url) return;
+
+      await this.#page.goto(this.url);
+      await this.#page.waitForSelector(".AdViewDescription_descriptionHolder__9hET7");
+      
+      const description = await this.#page.$eval(".AdViewDescription_descriptionHolder__9hET7", element => element.textContent);
+  
+      return description;
+    }
+    catch (error) {
+      console.error(`Error while getting full description, error: ${error}`);
+      return "";
+    }
+  }
+
   /**
    * Retrieve all images related to listing
    * @returns array of image urls
@@ -317,10 +364,12 @@ class Listing {
    */
   async getImages() {
     try {
+      if (!this.url) return;
+
       await this.#page.goto(this.url);
-      await this.#page.waitForSelector(".GallerySlideItem_imageGalleryImage__2eGga");
 
       const data = await this.#page.$$(".GallerySlideItem_imageGalleryImage__2eGga");
+      
       const images = [];
 
       for (const image of data) {
@@ -332,7 +381,7 @@ class Listing {
     }
     catch (error) {
       console.error(`Error while getting images, error: ${error}`);
-      await this.browser?.close();
+      return []
     }
   }
 }

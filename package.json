@@ -1,6 +1,6 @@
 {
   "name": "kp-scraper",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A web scraper for the Serbian listings site KupujemProdajem",
   "type": "module",
   "scripts": {
@@ -14,6 +14,8 @@
   "author": "Teo Medesi",
   "license": "MIT",
   "dependencies": {
-    "puppeteer": "^20.8.3"
+    "puppeteer": "^20.8.3",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   }
 }

@@ -1,29 +1,40 @@
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth"
+import AdblockerPlugin from "puppeteer-extra-plugin-adblocker"
 import { getCategoryId, transformString, extractPrice, getSubcategoryFromURL } from "./utils/utils.js";
+
 
 class BaseScraper {
   browser;
   page;
-
+  
   /**
    * initialize the scraper, must be called before using any of the KupujemProdajem methods
    * @async
    */
   async init() {
     try {
+      puppeteer.use(AdblockerPlugin());
+
       this.browser = await puppeteer.launch();
       this.page = await this.browser.newPage();
       this.page.setDefaultNavigationTimeout(2 * 60 * 1000);
       await this.page.goto("https://novi.kupujemprodajem.com")
-
-      puppeteer.use(StealthPlugin())
     }
     catch (error) {
       console.error(`Error during initilization, error: ${error}`);
       await this.browser?.close();
     }
   }
+
+  /**
+   * The maximum time that the scraper will wait for an operation to complete. If the operation takes longer than the specified time, the scraper will throw an error.
+   * @param {Integer} timeout how long to wait for an operation to complete, expressed in miliseconds 
+   */
+  setDefaultTimeout(timeout) {
+    this.page.setDefaultTimeout(timeout);
+  }
+
 
   async close() {
     await this.browser?.close();
@@ -74,6 +85,8 @@ class KupujemProdajem extends BaseScraper {
    */
   async getListingByUrl(url) {
     try {
+      if (!url) throw new Error("url is undefined");
+
       await this.page.goto(url);
       await this.page.waitForSelector(".Box_box__03Q3_.AdPage_adInfoBox__65MTf")
 
@@ -231,13 +244,14 @@ class Category {
   }
 
   /**
-   * Retrieves all listings from the specified page of a category (by default page 1)
+   * Retrieves a shallow representation of all listings from the specified page of a category (by default page 1). If you wish to get all listings in detail, see `getDetailedListings()`.
    * @param {Object} [options] 
    * @param {Number} [options.page] the page to scrape
+   * @param {Boolean} [options.outputTimestamps] whether or not to output the time it takes to retrieve each listing to the console
    * @returns instance of Listings class
    * @async
    */
-  async getListings(options = {page: 1}) {
+  async getListings(options = {page: 1, outputTimestamps: false}) {
     try {
       await this.#page.screenshot({path: "screenshot.png"})
 
@@ -249,7 +263,9 @@ class Category {
 
       const listings = [];
 
-      for (const listing of data) {
+      for (const [index, listing] of data.entries()) {
+        options.outputTimestamps && console.time(`Listing ${index} Time`);
+        
         const title = await listing?.$eval('.AdItem_name__RhGAZ', element => element.textContent).catch(() => { });
         const url = await listing?.$eval('.AdItem_adTextHolder__Fmra9 a', element => element.href).catch(( ) => { });
         const coverImage = await listing?.$eval('img', element => element.src).catch(( ) => { });
@@ -257,7 +273,12 @@ class Category {
         const price = await listing?.$eval('.AdItem_price__jUgxi', element => element.textContent).catch(( ) => { });
         const location = await listing?.$eval('.AdItem_originAndPromoLocation__HgtYj', element => element.textContent).catch(( ) => { });
 
+        // if the url is undefined then the listing doesn't exist
+        if (!url) continue;
+
         listings.push({ title, description, price, location, coverImage, url });
+
+        options.outputTimestamps && console.timeEnd(`Listing ${index} Time`);
       }
 
       return new Listings(listings, this.browser, this.#page)
@@ -267,6 +288,68 @@ class Category {
       return null
     }
   }
+
+  /**
+   * Retrieves a detailed representation of all listings from the specified page of a category (by default page 1). If you wish for a less time-consuming alternative, see `getListings()`.
+   * @param {Object} [options] 
+   * @param {Number} [options.page] the page to scrape
+   * @param {Boolean} [options.outputTimestamps] whether or not to output the time it takes to retrieve each listing to the console
+   * @returns instance of Listings class
+   * @async
+  */
+  async getDetailedListings(options = {page: 1, outputTimestamps: false}) {
+      try {
+        const transformedName = transformString(this.name);
+        const categoryId = getCategoryId(transformedName);
+  
+        await this.#page.goto(`https://novi.kupujemprodajem.com/${transformedName}/pretraga?categoryId=${categoryId}&page=${options.page}`);
+        const data = await this.#page.$$(".AdItem_adHolder__NoNLJ");
+  
+        const listings = [];
+  
+        // await this.#page.screenshot({path: "screenshot.png", fullPage: true})
+        for (const [index, listing] of data.entries()) {
+          try {
+            options.outputTimestamps && console.time(`Listing ${index} Time`);
+          
+            const title = await listing?.$eval('.AdItem_name__RhGAZ', element => element.textContent).catch(() => { });
+            const url = await listing?.$eval('.AdItem_adTextHolder__Fmra9 a', element => element.href).catch(( ) => { });
+            const coverImage = await listing?.$eval('img', element => element.src).catch(( ) => { });
+            const description = await listing?.$eval('.AdItem_adTextHolder__Fmra9 p', element => element.textContent).catch(() => { });
+            const price = await listing?.$eval('.AdItem_price__jUgxi', element => element.textContent).catch(( ) => { });
+            const location = await listing?.$eval('.AdItem_originAndPromoLocation__HgtYj', element => element.textContent).catch(( ) => { });
+    
+            // note to self, you can not evaluate element handles while not being on the page where they exist!
+            console.log(url);
+
+            const newPage = await this.browser.newPage();
+            const listingHandle = new Listing({url}, this.browser, newPage);
+            const subcategory = listingHandle.getSubCategory(); 
+            const images = await listingHandle.getImages();
+            const fullDescription = await listingHandle.getFullDescription();
+
+            options.outputTimestamps && console.timeEnd(`Listing ${index} Time`);
+
+            // if the url is undefined then the listing doesn't exist
+            if (!url) continue;
+
+            listings.push({ title, description, price, location, coverImage, url, subcategory, images, fullDescription});
+  
+          }
+          catch (error) {
+            console.error(`Error while getting listing, error: ${error}`);
+            continue;
+          }
+        }
+  
+        return new Listings(listings, this.browser, this.#page)
+      }
+      catch (error) {
+        console.error(`Error while getting listings, error: ${error}`);
+        return null
+      }
+  }
+  
 }
 
 /**
@@ -284,7 +367,8 @@ class Listings {
   }
 
   /**
-   * @returns array of listing objects with the properties of title, description, price, location, coverImage and url
+   * Retrieve array of all listings
+   * @returns array representation of listing objects
    */
   getAllListings() {
     return this.#listings;
@@ -298,6 +382,8 @@ class Listings {
    */
   async getListing(url) {
     try {
+      if (!url) throw new Error("url is undefined");
+
       const listing = this.#listings.find(listing => listing.url === url);
       return new Listing(listing, this.browser, this.#page);
     }
@@ -319,6 +405,8 @@ class Listing {
   url;
   coverImage;
   browser;
+  images;
+  fullDescription;
   #page;
 
   constructor(listing, browser, page) {
@@ -328,6 +416,8 @@ class Listing {
     this.url = listing?.url;
     this.description = listing?.description;
     this.coverImage = listing?.coverImage;
+    this.fullDescription = listing?.fullDescription;
+    this.images = listing?.images;
     this.#page = page;
     this.browser = browser;
   }
@@ -339,6 +429,12 @@ class Listing {
   getSubCategory() {
     return getSubcategoryFromURL(this.url);
   }
+
+  /**
+   * Retrieves the full description of a listing.
+   * @returns String
+   * @async
+   */
 
   async getFullDescription() {
     try {

@@ -1,6 +1,6 @@
 {
   "name": "kp-scraper",
-  "version": "1.0.1",
+  "version": "1.2",
   "description": "A web scraper for the Serbian listings site KupujemProdajem",
   "type": "module",
   "scripts": {
@@ -16,7 +16,6 @@
   "dependencies": {
     "puppeteer": "^20.8.3",
     "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-adblocker": "^2.13.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "puppeteer-extra-plugin-adblocker": "^2.13.6"
   }
 }

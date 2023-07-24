@@ -52,6 +52,9 @@ Initialize the scraper. This method must be called before using any of the Kupuj
 
 Close the scraper. This method closes the Puppeteer browser instance.
 
+## `setDefaultTimeout()`
+Set how long to wait for an operation to complete before throwing a timeout error.
+
 ## `getListingByUrl(url)`
 
 Retrieve a listing by its URL. This method navigates to the provided URL and extracts the listing details such as title, description, price, and location.
@@ -59,6 +62,16 @@ Retrieve a listing by its URL. This method navigates to the provided URL and ext
 - `url` (String): The URL of the listing.
 
 Returns an instance of the `Listing` class.
+
+## `getVehicleListingByUrl(url)` 
+Retrieve a listing by its URL. This method navigates to the provided URL and extracts the listing details such as title, description, price, and location.
+
+- `url` (String): The URL of the listing.
+
+Returns an instance of the `VehicleListing` class which allows for extracting special properties from the listing.
+
+## `getLatestListings()` 
+Retrieve the latest listings from the front page.
 
 ## `getListingsBySearch(keywords)`
 
@@ -73,8 +86,6 @@ Returns an instance of the `Listings` class.
 Retrieve all categories from the KupujemProdajem website.
 
 Returns an instance of the `Categories` class.
-
----
 
 ## `Categories` class
 
@@ -94,19 +105,32 @@ Get a specific category by its name.
 
 Returns an instance of the `Category` class.
 
----
+### `getVehicleCategory()` 
+Get the "automobili" category.
+
+Returns an instance of the `VehicleCategory` class.
 
 ## `Category` class
 
 Represents a category on the KupujemProdajem website.
 
-### `getListings()`
+### `getListings(options = {page: 1, outputTimestamps: false})`
 
-Retrieve all listings from the first page of the category.
+Retrieve all listings from the specified page of the category.
+
+  - `options.page` (Integer): the page to get the listings from
+  - `options.outputTimestamps` (Boolean): whether or not to output timestamps for each listing to the console
 
 Returns an instance of the `Listings` class.
 
----
+### `getDetailedListings(options = {page: 1, outputTimestamps: false})`
+
+Retrieve all listings from the specified page of the category with more detail than `getListings()`. This method scrapes additional information such as: images, subcategory and the full description from the listing but is more time consuming than `getListings()`. 
+
+  - `options.page` (Integer): the page to get the listings from
+  - `options.outputTimestamps` (Boolean): whether or not to output timestamps for each listing to the console
+
+Returns an instance of the `Listings` class.
 
 ## `Listings` class
 
@@ -124,7 +148,19 @@ Get a specific listing by its URL.
 
 - `url` (String): The URL of the listing.
 
----
+## `VehicleCategory` class
+
+Represents the "automobili" category on the KupujemProdajem website.
+Inherits from the `Category` class.
+
+### `getDetailedListings(options = {page: 1, outputTimestamps: false})` 
+
+Retrieve all listings from the specified page of the category with more detail than `getListings()`. This method scrapes additional information such as: images, subcategory, full description, characteristics and more from the listing but is more time consuming than `getListings()`. 
+
+  - `options.page` (Integer): the page to get the listings from
+  - `options.outputTimestamps` (Boolean): whether or not to output timestamps for each listing to the console
+
+Returns an instance of the `Listings` class.
 
 ## `Listing` class
 
@@ -135,3 +171,20 @@ Represents a listing on the KupujemProdajem website.
 Retrieve all images associated with the listing.
 
 Returns an array of image URLs.
+
+## `VehicleListing` class
+
+Represents a vehicle listing on the KupujemProdajem website.
+Inherits from the `Listing` class.
+
+### `getCharacteristics()`
+
+Retrieves all of the vehicles characteristics and properties such as the make, date of production, color...
+
+Returns an array of objects containing key and value pairs
+
+### `getVehicleInformation()`
+
+Retrieves additional information specified by the seller
+
+Returns an object containing the properties "gear" and "warnings".

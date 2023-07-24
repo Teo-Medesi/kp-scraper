@@ -1,5 +1,4 @@
 import puppeteer from "puppeteer-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth"
 import AdblockerPlugin from "puppeteer-extra-plugin-adblocker"
 import { getCategoryId, transformString, extractPrice, getSubcategoryFromURL } from "./utils/utils.js";
 
@@ -179,7 +178,6 @@ class KupujemProdajem extends BaseScraper {
       let data = await container.$$(".CategoryList_name__ES_NA")
       let categories = [];
 
-
       for (const category of data) {
         const name = await category.evaluate(element => element.textContent);
         const url = await category.evaluate(element => element.href)
@@ -221,6 +219,7 @@ class Categories {
    * Retrieves category by name
    * @param {String} name wrriten in lowercase with no white space and no special characters, e.g "alati-i-orudja" 
    * @returns instance of Category class
+   * @async
    */
   async getCategory(name) {
     try {
@@ -250,6 +249,12 @@ class Categories {
     }
   }
 
+
+  /**
+   * Retrieves the "automobili" category
+   * @returns instance of VehicleCategory class
+   * @async
+  */
   async getVehicleCatetegory() {
     try {
       await this.#page.goto("https://novi.kupujemprodajem.com/automobili/kategorija/2013");
@@ -303,8 +308,6 @@ class Category {
    */
   async getListings(options = { page: 1, outputTimestamps: false }) {
     try {
-      await this.#page.screenshot({ path: "screenshot.png" })
-
       const transformedName = transformString(this.name);
       const categoryId = getCategoryId(transformedName);
 
@@ -356,8 +359,6 @@ class Category {
       const data = await this.#page.$$(".AdItem_adHolder__NoNLJ");
 
       const listings = [];
-
-      // await this.#page.screenshot({path: "screenshot.png", fullPage: true})
       for (const [index, listing] of data.entries()) {
         try {
           options.outputTimestamps && console.time(`Listing ${index} Time`);
@@ -402,7 +403,9 @@ class Category {
   }
 
 }
-
+/**
+ * @class
+ */
 class VehicleCategory extends Category {
   #page;
 
@@ -429,7 +432,6 @@ class VehicleCategory extends Category {
 
       const listings = [];
 
-      // await this.#page.screenshot({path: "screenshot.png", fullPage: true})
       for (const [index, listing] of data.entries()) {
         try {
           options.outputTimestamps && console.time(`Listing ${index} Time`);
@@ -606,6 +608,9 @@ class Listing {
   }
 }
 
+/**
+ * @class
+ */
 class VehicleListing extends Listing {
   #page;
 
@@ -614,6 +619,12 @@ class VehicleListing extends Listing {
     this.#page = page;
   }
 
+
+  /**
+   * Retrieves all of the vehicles characteristics and properties such as the make, date of production, color...
+   * @returns array of objects containing key and value pairs
+   * @async
+   */
   async getCharacteristics() {
     try {
       if (!this.url) throw new Error("url is undefined");
@@ -645,6 +656,12 @@ class VehicleListing extends Listing {
 
   }
 
+
+  /**
+   * Retrieves additional information specified by the seller
+   * @returns object containing the properties "gear" and "warnings"
+   * @async
+   */
   async getVehicleInformation() {
     try {
       if (!this.url) throw new Error("url is undefined");

@@ -2,13 +2,24 @@ import fs from "fs"
 
 function getSubcategoryFromURL(url) {
   if (!url) return null;
-  
+
   // Split the URL by slashes to get the individual segments
   const segments = url.split('/');
 
   const subcategoryName = segments[4];
 
   return subcategoryName;
+}
+
+function getCategoryFromURL(url) {
+  if (!url) return null;
+
+  // Split the URL by slashes to get the individual segments
+  const segments = url.split('/');
+
+  const categoryName = segments[3];
+
+  return categoryName;
 }
 
 function transformString(input) {
@@ -131,5 +142,6 @@ export {
   getCategoryId,
   saveToFolder,
   extractPrice,
-  getSubcategoryFromURL
+  getSubcategoryFromURL,
+  getCategoryFromURL
 }

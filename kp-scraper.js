@@ -7,7 +7,7 @@ import { getCategoryId, transformString, extractPrice, getSubcategoryFromURL } f
 class BaseScraper {
   browser;
   page;
-  
+
   /**
    * initialize the scraper, must be called before using any of the KupujemProdajem methods
    * @async
@@ -104,6 +104,32 @@ class KupujemProdajem extends BaseScraper {
     }
   }
 
+  /**
+   * Retrieves a vehicle listing by url
+   * @param {String} url the url of the listing you want to get
+   * @returns instance of the VehicleListing class
+   * @async
+   */
+  async getVehicleListingByUrl(url) {
+    try {
+      if (!url) throw new Error("url is undefined");
+
+      await this.page.goto(url);
+      await this.page.waitForSelector(".Box_box__03Q3_.AdPage_adInfoBox__65MTf")
+
+      const title = await this.page.$eval('h1.AdViewInfo_name__ShcRk', (element) => element.innerText.trim());
+      const description = await this.page.$eval('.AdViewDescription_descriptionHolder__9hET7 div', (element) => element.innerText.trim());
+      const price = await this.page.$eval('h2.AdViewInfo_price__RLvIy', (element) => element.innerText.trim());
+      const location = await this.page.$eval('.UserSummary_userDetails__tNXN7 div div + div', (element) => element.innerText.trim());
+
+      return new VehicleListing({ title, description, price: extractPrice(price), location, url }, this.browser, this.page);
+
+    }
+    catch (error) {
+      console.error(`Error while getting listing, error: ${error}`);
+      return null
+    }
+  }
 
   /**
    * Retrieves listings from the first page that matches the keywords query
@@ -219,7 +245,31 @@ class Categories {
 
     }
     catch (error) {
-      console.error(`Error while getting categories, error: ${error}`);
+      console.error(`Error while getting category, error: ${error}`);
+      return null
+    }
+  }
+
+  async getVehicleCatetegory() {
+    try {
+      await this.#page.goto("https://novi.kupujemprodajem.com/automobili/kategorija/2013");
+      await this.#page.waitForSelector(".CategoryBox_name__54eU9");
+
+      const data = await this.#page.$$(".CategoryBox_name__54eU9");
+      const subCategories = [];
+
+      for (const subCategory of data) {
+        const name = await subCategory.evaluate(subCategory => subCategory.textContent)
+        const url = await subCategory.evaluate(subCategory => subCategory.href);
+
+        subCategories.push({ name, url })
+      }
+
+      return new VehicleCategory("automobili", "https://novi.kupujemprodajem.com/automobili/kategorija/2013", subCategories, this.browser, this.#page);
+
+    }
+    catch (error) {
+      console.error(`Error while getting category, error: ${error}`);
       return null
     }
   }
@@ -251,9 +301,9 @@ class Category {
    * @returns instance of Listings class
    * @async
    */
-  async getListings(options = {page: 1, outputTimestamps: false}) {
+  async getListings(options = { page: 1, outputTimestamps: false }) {
     try {
-      await this.#page.screenshot({path: "screenshot.png"})
+      await this.#page.screenshot({ path: "screenshot.png" })
 
       const transformedName = transformString(this.name);
       const categoryId = getCategoryId(transformedName);
@@ -265,13 +315,13 @@ class Category {
 
       for (const [index, listing] of data.entries()) {
         options.outputTimestamps && console.time(`Listing ${index} Time`);
-        
+
         const title = await listing?.$eval('.AdItem_name__RhGAZ', element => element.textContent).catch(() => { });
-        const url = await listing?.$eval('.AdItem_adTextHolder__Fmra9 a', element => element.href).catch(( ) => { });
-        const coverImage = await listing?.$eval('img', element => element.src).catch(( ) => { });
+        const url = await listing?.$eval('.AdItem_adTextHolder__Fmra9 a', element => element.href).catch(() => { });
+        const coverImage = await listing?.$eval('img', element => element.src).catch(() => { });
         const description = await listing?.$eval('.AdItem_adTextHolder__Fmra9 p', element => element.textContent).catch(() => { });
-        const price = await listing?.$eval('.AdItem_price__jUgxi', element => element.textContent).catch(( ) => { });
-        const location = await listing?.$eval('.AdItem_originAndPromoLocation__HgtYj', element => element.textContent).catch(( ) => { });
+        const price = await listing?.$eval('.AdItem_price__jUgxi', element => element.textContent).catch(() => { });
+        const location = await listing?.$eval('.AdItem_originAndPromoLocation__HgtYj', element => element.textContent).catch(() => { });
 
         // if the url is undefined then the listing doesn't exist
         if (!url) continue;
@@ -297,59 +347,133 @@ class Category {
    * @returns instance of Listings class
    * @async
   */
-  async getDetailedListings(options = {page: 1, outputTimestamps: false}) {
-      try {
-        const transformedName = transformString(this.name);
-        const categoryId = getCategoryId(transformedName);
-  
-        await this.#page.goto(`https://novi.kupujemprodajem.com/${transformedName}/pretraga?categoryId=${categoryId}&page=${options.page}`);
-        const data = await this.#page.$$(".AdItem_adHolder__NoNLJ");
-  
-        const listings = [];
-  
-        // await this.#page.screenshot({path: "screenshot.png", fullPage: true})
-        for (const [index, listing] of data.entries()) {
-          try {
-            options.outputTimestamps && console.time(`Listing ${index} Time`);
-          
-            const title = await listing?.$eval('.AdItem_name__RhGAZ', element => element.textContent).catch(() => { });
-            const url = await listing?.$eval('.AdItem_adTextHolder__Fmra9 a', element => element.href).catch(( ) => { });
-            const coverImage = await listing?.$eval('img', element => element.src).catch(( ) => { });
-            const description = await listing?.$eval('.AdItem_adTextHolder__Fmra9 p', element => element.textContent).catch(() => { });
-            const price = await listing?.$eval('.AdItem_price__jUgxi', element => element.textContent).catch(( ) => { });
-            const location = await listing?.$eval('.AdItem_originAndPromoLocation__HgtYj', element => element.textContent).catch(( ) => { });
-    
-            // note to self, you can not evaluate element handles while not being on the page where they exist!
-            console.log(url);
+  async getDetailedListings(options = { page: 1, outputTimestamps: false }) {
+    try {
+      const transformedName = transformString(this.name);
+      const categoryId = getCategoryId(transformedName);
 
-            const newPage = await this.browser.newPage();
-            const listingHandle = new Listing({url}, this.browser, newPage);
-            const subcategory = listingHandle.getSubCategory(); 
-            const images = await listingHandle.getImages();
-            const fullDescription = await listingHandle.getFullDescription();
+      await this.#page.goto(`https://novi.kupujemprodajem.com/${transformedName}/pretraga?categoryId=${categoryId}&page=${options.page}`);
+      const data = await this.#page.$$(".AdItem_adHolder__NoNLJ");
 
-            options.outputTimestamps && console.timeEnd(`Listing ${index} Time`);
+      const listings = [];
 
-            // if the url is undefined then the listing doesn't exist
-            if (!url) continue;
+      // await this.#page.screenshot({path: "screenshot.png", fullPage: true})
+      for (const [index, listing] of data.entries()) {
+        try {
+          options.outputTimestamps && console.time(`Listing ${index} Time`);
 
-            listings.push({ title, description, price, location, coverImage, url, subcategory, images, fullDescription});
-  
-          }
-          catch (error) {
-            console.error(`Error while getting listing, error: ${error}`);
-            continue;
-          }
+          const title = await listing?.$eval('.AdItem_name__RhGAZ', element => element.textContent).catch(() => { });
+          const url = await listing?.$eval('.AdItem_adTextHolder__Fmra9 a', element => element.href).catch(() => { });
+          const coverImage = await listing?.$eval('img', element => element.src).catch(() => { });
+          const description = await listing?.$eval('.AdItem_adTextHolder__Fmra9 p', element => element.textContent).catch(() => { });
+          const price = await listing?.$eval('.AdItem_price__jUgxi', element => element.textContent).catch(() => { });
+          const location = await listing?.$eval('.AdItem_originAndPromoLocation__HgtYj', element => element.textContent).catch(() => { });
+
+
+          // note to self, you can not evaluate element handles while not being on the page where they exist!
+          const newPage = await this.browser.newPage();
+          const listingHandle = new Listing({ url }, this.browser, newPage);
+          const subcategory = listingHandle.getSubCategory();
+          const images = await listingHandle.getImages();
+          const fullDescription = await listingHandle.getFullDescription();
+
+          await newPage.close();
+
+          options.outputTimestamps && console.timeEnd(`Listing ${index} Time`);
+
+          // if the url is undefined then the listing doesn't exist
+          if (!url) continue;
+
+          listings.push({ title, description, price, location, coverImage, url, subcategory, images, fullDescription });
+
         }
-  
-        return new Listings(listings, this.browser, this.#page)
+        catch (error) {
+          console.error(`Error while getting listing, error: ${error}`);
+          continue;
+        }
       }
-      catch (error) {
-        console.error(`Error while getting listings, error: ${error}`);
-        return null
-      }
+
+      return new Listings(listings, this.browser, this.#page)
+    }
+    catch (error) {
+      console.error(`Error while getting listings, error: ${error}`);
+      return null
+    }
   }
-  
+
+}
+
+class VehicleCategory extends Category {
+  #page;
+
+  constructor(name, url, subCategories, browser, page) {
+    super(name, url, subCategories, browser, page);
+    this.#page = page;
+  }
+
+  /**
+  * Retrieves a detailed representation of all listings from the specified page of the vehicles category (by default page 1). If you wish for a less time-consuming alternative, see `getListings()`.
+  * @param {Object} [options] 
+  * @param {Number} [options.page] the page to scrape
+  * @param {Boolean} [options.outputTimestamps] whether or not to output the time it takes to retrieve each listing to the console
+  * @returns instance of Listings class
+  * @async
+  */
+  async getDetailedListings(options = { page: 1, outputTimestamps: false }) {
+    try {
+      const transformedName = transformString(this.name);
+      const categoryId = getCategoryId(transformedName);
+
+      await this.#page.goto(`https://novi.kupujemprodajem.com/${transformedName}/pretraga?categoryId=${categoryId}&page=${options.page}`);
+      const data = await this.#page.$$(".AdItem_adHolder__NoNLJ");
+
+      const listings = [];
+
+      // await this.#page.screenshot({path: "screenshot.png", fullPage: true})
+      for (const [index, listing] of data.entries()) {
+        try {
+          options.outputTimestamps && console.time(`Listing ${index} Time`);
+
+          const title = await listing?.$eval('.AdItem_name__RhGAZ', element => element.textContent).catch(() => { });
+          const url = await listing?.$eval('.AdItem_adTextHolder__Fmra9 a', element => element.href).catch(() => { });
+          const coverImage = await listing?.$eval('img', element => element.src).catch(() => { });
+          const description = await listing?.$eval('.AdItem_adTextHolder__Fmra9 p', element => element.textContent).catch(() => { });
+          const price = await listing?.$eval('.AdItem_price__jUgxi', element => element.textContent).catch(() => { });
+          const location = await listing?.$eval('.AdItem_originAndPromoLocation__HgtYj', element => element.textContent).catch(() => { });
+
+
+          // note to self, you can not evaluate element handles while not being on the page where they exist!
+          const newPage = await this.browser.newPage();
+          const listingHandle = new VehicleListing({ url }, this.browser, newPage);
+          const subcategory = listingHandle.getSubCategory();
+          const images = await listingHandle.getImages();
+          const fullDescription = await listingHandle.getFullDescription();
+          const characteristics = await listingHandle.getCharacteristics();
+          const vehicleInformation = await listingHandle.getVehicleInformation();
+
+          await newPage.close();
+
+          options.outputTimestamps && console.timeEnd(`Listing ${index} Time`);
+
+          // if the url is undefined then the listing doesn't exist
+          if (!url) continue;
+
+          listings.push({ title, description, price, location, coverImage, url, subcategory, images, fullDescription, vehicleInformation, characteristics });
+
+        }
+        catch (error) {
+          console.error(`Error while getting listing, error: ${error}`);
+          continue;
+        }
+      }
+
+      return new Listings(listings, this.browser, this.#page)
+    }
+    catch (error) {
+      console.error(`Error while getting listings, error: ${error}`);
+      return null
+    }
+  }
 }
 
 /**
@@ -442,9 +566,9 @@ class Listing {
 
       await this.#page.goto(this.url);
       await this.#page.waitForSelector(".AdViewDescription_descriptionHolder__9hET7");
-      
+
       const description = await this.#page.$eval(".AdViewDescription_descriptionHolder__9hET7", element => element.textContent);
-  
+
       return description;
     }
     catch (error) {
@@ -465,7 +589,7 @@ class Listing {
       await this.#page.goto(this.url);
 
       const data = await this.#page.$$(".GallerySlideItem_imageGalleryImage__2eGga");
-      
+
       const images = [];
 
       for (const image of data) {
@@ -481,6 +605,73 @@ class Listing {
     }
   }
 }
+
+class VehicleListing extends Listing {
+  #page;
+
+  constructor(listing, browser, page) {
+    super(listing, browser, page);
+    this.#page = page;
+  }
+
+  async getCharacteristics() {
+    try {
+      if (!this.url) throw new Error("url is undefined");
+
+      await this.#page.goto(this.url);
+
+      const data = await this.#page.$$("body td");
+      const characteristics = [];
+
+      for (let i = 0; i < data.length; i += 2) {
+        try {
+          const key = await data[i]?.evaluate(element => element.textContent.trim());
+          const value = await data[i + 1]?.evaluate(element => element.textContent.trim());
+
+          characteristics.push({ key, value });
+        }
+        catch (error) {
+          console.error(`Error while getting characteristics, error: ${error}`);
+          continue;
+        }
+      }
+
+      return characteristics;
+    }
+    catch (error) {
+      console.error(`Error while getting characteristics, Error: ${error}`);
+      return [];
+    }
+
+  }
+
+  async getVehicleInformation() {
+    try {
+      if (!this.url) throw new Error("url is undefined");
+
+      await this.#page.goto(this.url);
+
+      const data = await this.#page.$$(".AdViewDescription_section__feRKM");
+
+      const gear = await data[1]?.$$eval("ul li", elements => {
+        return elements.map(element => element.textContent.trim());
+      })
+
+      const warnings = await data[2]?.$$eval("ul li", elements => {
+        return elements.map(element => element.textContent.trim());
+      })
+
+      return { gear, warnings };
+    }
+    catch (error) {
+      console.error(`Error while getting car information, Error: ${error}`);
+      return {};
+    }
+
+  }
+}
+
+
 
 export default KupujemProdajem;
 
